@@ -29,6 +29,7 @@ class CreateRewRickMortyUseCase implements CreateRewRickMortyUseCaseInterface
      */
     public function handle($request, array $queryParams): ?int
     {
+
         $episodeId = $queryParams['episodeId'] ?? null;
         $episodeName = $queryParams['episodeName'] ?? null;
         $comment = $queryParams['comment'] ?? '';
