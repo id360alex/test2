@@ -1,0 +1,78 @@
+version: "3.4"
+services:
+    phpcli:
+        container_name: ${APP_CONTAINER_NAMESPACE:-}phpcli
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+            target: php-cli
+        volumes:
+            - shared:/var/shared:rw
+            - ./app:/var/www:rw
+        depends_on:
+            - postgres
+        working_dir: /var/www
+        env_file:
+            - .env
+
+    phpfpm:
+        container_name: ${APP_CONTAINER_NAMESPACE:-}phpfpm
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+            target: php-fpm
+        volumes:
+            - shared:/var/shared:rw
+            - ./app:/var/www:rw
+        depends_on:
+            - postgres
+        working_dir: /var/www
+        env_file:
+            - .env
+
+    consumer:
+        container_name: ${APP_CONTAINER_NAMESPACE:-}consumer
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+            target: php-supervisor
+        volumes:
+            - shared:/var/shared:rw
+            - ./app:/var/www:rw
+        working_dir: /var/www
+        env_file:
+            - .env
+
+    postgres:
+        container_name: ${APP_CONTAINER_NAMESPACE:-}postgres
+        build:
+            context: .
+            dockerfile: ./docker/postgres/Dockerfile
+        volumes:
+            - shared:/var/shared:rw
+        command: postgres -c max_locks_per_transaction=128
+        environment:
+            - POSTGRES_DB=rickmorty
+            - POSTGRES_USER=rick
+            - POSTGRES_PASSWORD=morty
+        ports:
+            - 127.0.0.1:${APP_DB_PORT:-15432}:5432
+
+    nginx:
+        container_name: ${APP_CONTAINER_NAMESPACE:-}nginx
+        build:
+            context: .
+            dockerfile: ./docker/nginx/Dockerfile
+        volumes:
+            - ./docker/nginx/templates:/etc/nginx/templates
+            - ./app:/var/www:rw
+        ports:
+            - 127.0.0.1:${APP_NGINX_PORT:-8080}:${APP_NGINX_PORT:-8080}
+        environment:
+            - NGINX_PORT=${APP_NGINX_PORT:-8080}
+        depends_on:
+            - phpfpm
+        working_dir: /var/www
+
+volumes:
+    shared:

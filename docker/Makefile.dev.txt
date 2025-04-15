@@ -1,0 +1,39 @@
+#!/usr/bin/make
+
+define print_block
+	printf " \e[30;48;5;82m  %s  \033[0m\n" $1
+endef
+
+.PHONY: all
+.SILENT:
+.DEFAULT_GOAL: help
+
+help: ## Show this help
+	@printf "\033[33m%s:\033[0m\n" 'Available commands'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+check: codestyle phpstan phpunit ## Check all
+
+phpunit: ## Run functional tests
+	docker compose run --rm phpcli bin/phpunit
+
+phpstan: ## Code static analyse
+	$(call print_block, 'Source code check')
+	docker compose run --rm phpcli bin/phpstan analyse
+	$(call print_block, 'Tests code check')
+	docker compose run --rm phpcli bin/phpstan analyse -c /var/www/phpstan-tests.neon
+
+codestyle: ## Check code style
+	docker compose run --rm phpcli bin/php-cs-fixer fix -v
+
+console: ## Run Symfony console command
+	docker compose run --rm phpcli bin/console $(filter-out $@,$(MAKECMDGOALS))
+
+composer: ## Run Composer
+	docker compose run --rm phpcli bin/composer $(filter-out $@,$(MAKECMDGOALS))
+
+migrate: ## doctrine migrate
+	docker compose run --rm phpcli bin/console d:m:m $(filter-out $@,$(MAKECMDGOALS))
+
+diff: ## doctrine migrate diff
+	docker compose run --rm phpcli bin/console d:m:diff

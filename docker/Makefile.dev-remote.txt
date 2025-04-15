@@ -1,0 +1,57 @@
+#!/usr/bin/make
+
+define print_block
+	printf " \e[30;48;5;82m  %s  \033[0m\n" $1
+endef
+
+rsync_push = (rsync --delete -avz --exclude='/app/.php_cs.cache' --exclude='/.idea' --exclude='/.git' --exclude='/app/vendor' --exclude='/app/var' --exclude='/app/bin/.phpunit' --exclude='/var' --exclude='/app/node_modules' --exclude='app/src/TeamSoft/CRMBundle/frontend/node_modules' --exclude='/app/public/crm' --exclude='/app/public/dcr' --exclude='/app/public/build' . aim.dev:~/id360-crm-api >> /dev/null)
+rsync_pull = (rsync --delete -avz --exclude='/app/.php_cs.cache' --exclude='/app/var/cache' --exclude='/.idea' --exclude='/.git' --exclude='/app/node_modules' --exclude='app/src/TeamSoft/CRMBundle/frontend/node_modules' aim.dev:~/id360-crm-api/ . >> /dev/null)
+
+.PHONY: all
+.SILENT:
+.DEFAULT_GOAL: help
+
+help: ## Show this help
+	@printf "\033[33m%s:\033[0m\n" 'Available commands'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+phpunit: ## Run functional tests
+	$(call rsync_push, 'Push files to remote dev server')
+	ssh aim.dev 'cd ~/id360-crm-api && docker compose run --rm phpcli bin/phpunit'
+
+phpstan: ## Code static analyse
+	$(call rsync_push, 'Push files to remote dev server')
+	$(call print_block, 'Source code check')
+	ssh aim.dev 'cd ~/id360-crm-api && docker-compose run --rm phpcli bin/phpstan analyse'
+	$(call print_block, 'Tests code check')
+	ssh aim.dev 'cd ~/id360-crm-api && docker-compose run --rm phpcli bin/phpstan analyse -c /var/www/phpstan-tests.neon'
+
+codestyle: ## Check code style
+	$(call rsync_push, 'Push files to remote dev server')
+	ssh aim.dev 'cd ~/id360-crm-api && docker-compose run --rm phpcli bin/php-cs-fixer fix -v'
+	$(call rsync_pull, 'Pull files from remote dev server')
+
+console: ## Run Symfony console command
+	$(call rsync_push, 'Push files to remote dev server')
+	ssh aim.dev 'cd ~/id360-crm-api && docker compose run --rm phpcli bin/console $(filter-out $@,$(MAKECMDGOALS))'
+	$(call rsync_pull, 'Pull files from remote dev server')
+
+composer: ## Run Composer
+	$(call rsync_push, 'Push files to remote dev server')
+	ssh aim.dev 'cd ~/id360-crm-api && docker compose run --rm phpcli bin/composer $(filter-out $@,$(MAKECMDGOALS))'
+	$(call rsync_pull, 'Pull files from remote dev server')
+
+migrate: ## doctrine migrate
+	$(call rsync_push, 'Push files to remote dev server')
+	ssh aim.dev 'cd ~/id360-crm-api && docker compose run --rm phpcli bin/console d:m:m $(filter-out $@,$(MAKECMDGOALS))'
+
+diff: ## doctrine migrate diff
+	$(call rsync_push, 'Push files to remote dev server')
+	ssh aim.dev 'cd ~/id360-crm-api && docker compose run --rm phpcli bin/console d:m:diff'
+	$(call rsync_pull, 'Pull files from remote dev server')
+
+rsync-push: ## push local files to remote dev
+	$(call rsync_push, 'Push files to remote dev server')
+
+rsync-pull: ## pull vendors remote files to local
+	$(call rsync_pull, 'Pull files from remote dev server')
