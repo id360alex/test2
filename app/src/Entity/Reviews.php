@@ -96,5 +96,4 @@ class Reviews
     {
         $this->createDate = $createDate;
     }
-
 }
